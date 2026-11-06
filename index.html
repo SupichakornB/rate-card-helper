@@ -62,10 +62,11 @@
 
     <div class="panel">
       <details class="settings">
-        <summary>ตั้งค่าปุ่มยอดฟอลและข้อความทัก</summary>
+        <summary>ตั้งค่าแคมเปญและข้อความทัก</summary>
         <p class="hint" style="margin:10px 0 0">
-          ตั้งเงื่อนไขของแต่ละปุ่ม เช่น <b>&lt; 500</b> หรือ <b>&gt; 50k</b> แล้วเขียนข้อความทักของปุ่มนั้น
-          ยอดฟอลพิมพ์ได้แบบ 500, 1,000, 10k, 1.2m, 2หมื่น ระบบบันทึกให้อัตโนมัติ
+          ตั้งชื่อแคมเปญ (จะเป็นชื่อปุ่ม) กำหนดเงื่อนไขยอดฟอล เช่น <b>&lt; 500</b> หรือ <b>&gt; 50k</b>
+          แล้วเขียนข้อความทักของแคมเปญนั้น ยอดฟอลพิมพ์ได้แบบ 500, 1,000, 10k, 1.2m, 2หมื่น
+          หรือเว้นว่างไว้ถ้าไม่ต้องการเงื่อนไข ระบบบันทึกให้อัตโนมัติ
         </p>
         <div class="vars">
           <span class="hint">ตัวแปรในข้อความ:</span>
@@ -76,7 +77,7 @@
         </div>
         <div id="tierList"></div>
         <div class="row">
-          <button id="btnAddTier" class="outline">+ เพิ่มปุ่ม</button>
+          <button id="btnAddTier" class="outline">+ เพิ่มแคมเปญ</button>
           <button id="btnResetTier" class="plain">คืนค่าเริ่มต้น</button>
           <span id="savedFlag" class="saved">บันทึกแล้ว</span>
         </div>
@@ -116,7 +117,8 @@
       <details class="settings">
         <summary>ตั้งค่าแคมเปญและข้อความ</summary>
         <p class="hint" style="margin:10px 0 0">
-          ตั้งชื่อแคมเปญสั้นๆ แล้วเขียนข้อความของแคมเปญนั้น ชื่อแคมเปญจะกลายเป็นปุ่มด้านล่าง ระบบบันทึกให้อัตโนมัติ
+          ตั้งชื่อแคมเปญสั้นๆ แล้วเขียนข้อความ 2 แบบ คือข้อความปกติ และข้อความสำหรับส่ง Email
+          (ช่อง Email เว้นว่างได้) ชื่อแคมเปญจะกลายเป็นปุ่มด้านล่าง ระบบบันทึกให้อัตโนมัติ
         </p>
         <div class="vars">
           <span class="hint">ตัวแปรในข้อความ:</span>
@@ -136,6 +138,13 @@
       <div class="panel-title">เลือกแคมเปญ</div>
       <div id="cpBtns" class="tier-btns"></div>
       <div id="cpResult" class="msg-box">
+        <div class="result-head">
+          <span class="result-label" id="cpModeLabel">ข้อความปกติ</span>
+          <div class="seg" id="cpMode">
+            <button data-mode="normal" class="active">ปกติ</button>
+            <button data-mode="email">Email</button>
+          </div>
+        </div>
         <textarea id="cpMsg"></textarea>
         <div class="row">
           <button id="cpCopy" class="small">Copy ข้อความ</button>

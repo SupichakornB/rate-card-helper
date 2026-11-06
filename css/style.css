@@ -253,3 +253,25 @@ details.settings[open] summary::after{transform:rotate(180deg)}
   .field-grid{grid-template-columns:1fr}
   .tier-row input.cp-title{width:100%}
 }
+
+/* ===== เพิ่มเติม: ปุ่ม 2 บรรทัด และตั้งค่าแคมเปญ ===== */
+.tier-btn{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  line-height:1.3;padding:6px 16px;min-width:90px;
+}
+.tier-btn .tb-title{font-weight:600}
+.tier-btn .tb-sub{font-size:11px;font-weight:400;color:var(--muted)}
+.tier-btn.active .tb-sub{color:rgba(255,255,255,.85)}
+
+.tier-row .sub-label{font-size:13px;color:var(--muted)}
+.tpl-label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:8px 0 4px}
+.tier-box textarea.email-tpl{min-height:130px}
+
+/* ===== ปุ่มสลับ ปกติ / Email ===== */
+.result-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.result-label{font-size:14px;font-weight:600;margin-right:auto}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{background:#fff;color:var(--muted);border:none;border-radius:0;padding:5px 16px;font-size:13px}
+.seg button:hover{background:var(--orange-softer);color:var(--orange-dark)}
+.seg button.active,.seg button.active:hover{background:var(--orange);color:#fff}
+.msg-box.email textarea{min-height:220px}

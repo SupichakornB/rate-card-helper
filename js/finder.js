@@ -3,23 +3,25 @@
 const $ = id => document.getElementById(id);
 const cleanTail = s => s.replace(/[)\]}>,.;:!?'"…”’]+$/, "");
 
-/* ================= ตั้งค่าปุ่มยอดฟอล ================= */
+/* ================= ตั้งค่าแคมเปญ + ยอดฟอล ================= */
 const STORE_KEY = "rc_tiers_v2";
 const OPS = ["<", "≤", "=", "≥", ">"];
 const DEFAULT_TIERS = [
-  { op: "<", value: "500",  tpl: "สวัสดีค่ะช่อง {name} ทางเราสนใจร่วมงานรีวิวสินค้ากับช่องค่ะ เป็นงานแลกสินค้า (Barter) ไม่ทราบว่าสะดวกรับงานไหมคะ" },
-  { op: "<", value: "1000", tpl: "สวัสดีค่ะช่อง {name} ทางเราสนใจจ้างรีวิวสินค้ากับช่องค่ะ รบกวนขอ Rate Card และรายละเอียดเพิ่มเติมได้ไหมคะ" },
-  { op: ">", value: "50k",  tpl: "สวัสดีค่ะช่อง {name} ทางเราสนใจร่วมงานแคมเปญกับช่องค่ะ รบกวนขอ Rate Card แพ็กเกจทั้งหมด และช่วงคิวว่างของเดือนนี้ได้ไหมคะ" }
+  { title: "Finn",   op: ">", value: "1000",  tpl: "สวัสดีค่ะช่อง {name} " },
+  { title: "Dove",    op: ">", value: "1000", tpl: "สวัสดีค่ะช่อง {name} " },
+  { title: "AXE", op: ">", value: "500",  tpl: "สวัสดีค่ะช่อง {name} " }
 ];
 
 function loadTiers() {
   try {
     const s = JSON.parse(storeGet(STORE_KEY));
-    if (Array.isArray(s)) return s.map(t => ({ id: t.id || uid(), op: t.op || ">", value: t.value || "", tpl: t.tpl || "" }));
+    if (Array.isArray(s)) return s.map(t => ({
+      id: t.id || uid(), title: t.title || "", op: t.op || ">", value: t.value || "", tpl: t.tpl || ""
+    }));
   } catch {}
   const oldKeys = ["500", "1000", "50k"];
   return DEFAULT_TIERS.map((t, i) => ({
-    id: uid(), op: t.op, value: t.value,
+    id: uid(), title: t.title, op: t.op, value: t.value,
     tpl: storeGet("tpl_" + oldKeys[i]) ?? t.tpl
   }));
 }
@@ -48,11 +50,22 @@ function compare(n, op, v) {
   }
   return false;
 }
-const tierLabel = t => `${t.op} ${t.value || "?"}`;
 
+// ข้อความเงื่อนไข เช่น "< 500" (ว่างถ้าไม่ได้ตั้งยอดฟอล)
+const condText = t => (t.value || "").trim() ? `${t.op} ${t.value.trim()}` : "";
+// ชื่อปุ่ม
+const tierName = t => (t.title || "").trim() || "(ยังไม่ตั้งชื่อ)";
+// ชื่อเต็ม เช่น "จ้างรีวิว (ฟอล < 1000)"
+const tierFull = t => tierName(t) + (condText(t) ? ` (ฟอล ${condText(t)})` : "");
+
+// เรียงตามยอดฟอล แคมเปญที่ไม่มีเงื่อนไขอยู่ท้าย
 function sortedTiers() {
-  return tiers.slice().sort((a, b) =>
-    ((parseNum(a.value) || 0) - (parseNum(b.value) || 0)) || (OPS.indexOf(a.op) - OPS.indexOf(b.op)));
+  const v = t => { const n = parseNum(t.value); return isNaN(n) ? Infinity : n; };
+  return tiers.slice().sort((a, b) => {
+    const va = v(a), vb = v(b);
+    if (va !== vb) return va - vb;
+    return isFinite(va) ? OPS.indexOf(a.op) - OPS.indexOf(b.op) : 0;
+  });
 }
 function matchTier(n) {
   let best = null, bd = Infinity;
@@ -69,7 +82,7 @@ function renderTierSettings() {
   const list = $("tierList");
   list.innerHTML = "";
   if (!tiers.length) {
-    list.innerHTML = `<div class="empty">ยังไม่มีปุ่ม กด "เพิ่มปุ่ม" เพื่อสร้างเงื่อนไขแรก</div>`;
+    list.innerHTML = `<div class="empty">ยังไม่มีแคมเปญ กด "เพิ่มแคมเปญ" เพื่อสร้างอันแรก</div>`;
     return;
   }
   tiers.forEach((t, idx) => {
@@ -77,28 +90,36 @@ function renderTierSettings() {
     box.className = "tier-box";
     box.innerHTML = `
       <div class="tier-row">
-        <span class="tier-num">ปุ่ม ${idx + 1}</span>
-        <select class="op">${OPS.map(o => `<option ${o === t.op ? "selected" : ""}>${o}</option>`).join("")}</select>
-        <input class="val" placeholder="เช่น 500, 10k">
-        <span class="tier-preview"></span>
-        <span class="tier-warn"></span>
+        <span class="tier-num">แคมเปญ ${idx + 1}</span>
+        <input class="cp-title" placeholder="ชื่อแคมเปญ เช่น จ้างรีวิว">
         <button class="small del">ลบ</button>
       </div>
-      <textarea class="tpl" placeholder="ข้อความทักของปุ่มนี้"></textarea>`;
+      <div class="tier-row">
+        <span class="sub-label">ยอดฟอล</span>
+        <select class="op">${OPS.map(o => `<option ${o === t.op ? "selected" : ""}>${o}</option>`).join("")}</select>
+        <input class="val" placeholder="เช่น 500, 10k (เว้นว่างได้)">
+        <span class="sub-label">ปุ่มจะแสดงเป็น</span>
+        <span class="tier-preview"></span>
+        <span class="tier-warn"></span>
+      </div>
+      <textarea class="tpl" placeholder="ข้อความทักของแคมเปญนี้"></textarea>`;
+    const title = box.querySelector(".cp-title");
     const opSel = box.querySelector(".op");
     const val = box.querySelector(".val");
     const tpl = box.querySelector(".tpl");
     const preview = box.querySelector(".tier-preview");
     const warn = box.querySelector(".tier-warn");
+    title.value = t.title;
     val.value = t.value;
     tpl.value = t.tpl;
 
     const refreshPreview = () => {
-      preview.textContent = tierLabel(t);
+      preview.textContent = tierFull(t);
       warn.textContent = t.value && isNaN(parseNum(t.value)) ? "ตัวเลขไม่ถูกต้อง" : "";
     };
     refreshPreview();
 
+    title.oninput = () => { t.title = title.value; refreshPreview(); renderCards(); saveTiers(); };
     opSel.onchange = () => { t.op = opSel.value; refreshPreview(); renderCards(); saveTiers(); };
     val.oninput = () => { t.value = val.value.trim(); refreshPreview(); renderCards(); saveTiers(); };
     tpl.oninput = () => { t.tpl = tpl.value; renderCards(); saveTiers(); };
@@ -107,21 +128,21 @@ function renderTierSettings() {
     delBtn.onclick = () => confirmClick(delBtn, "กดอีกครั้งเพื่อลบ", () => {
       tiers = tiers.filter(x => x.id !== t.id);
       renderTierSettings(); renderCards(); saveTiers();
-      toast("ลบปุ่มแล้ว");
+      toast("ลบแคมเปญแล้ว");
     });
     list.appendChild(box);
   });
 }
 
 $("btnAddTier").onclick = () => {
-  tiers.push({ id: uid(), op: ">", value: "", tpl: "สวัสดีค่ะช่อง {name} " });
+  tiers.push({ id: uid(), title: "", op: ">", value: "", tpl: "สวัสดีค่ะช่อง {name} " });
   renderTierSettings(); renderCards(); saveTiers();
   const boxes = document.querySelectorAll("#tierList .tier-box");
   const last = boxes[boxes.length - 1];
   if (last) {
     last.classList.add("new");
     last.scrollIntoView({ behavior: "smooth", block: "center" });
-    last.querySelector(".val").focus({ preventScroll: true });
+    last.querySelector(".cp-title").focus({ preventScroll: true });
     setTimeout(() => last.classList.remove("new"), 2000);
   }
 };
@@ -272,7 +293,7 @@ function snapshot(c) {
     tiktok: c.url || "",
     lines: c.lines.map(l => ({ type: l.type, value: l.value })),
     followers: (c.followers || "").trim(),
-    tier: t ? tierLabel(t) : "",
+    tier: t ? tierFull(t) : "",
     message: t ? (c.msgText || buildMessage(t.tpl, c)) : ""
   };
 }
@@ -306,7 +327,7 @@ function savedToText() {
     `TikTok: ${s.tiktok || "-"}`,
     `LINE: ${s.lines.length ? s.lines.map(l => l.value).join(", ") : "-"}`,
     `ยอดฟอล: ${s.followers || "-"}`,
-    `ปุ่มที่เลือก: ${s.tier || "-"}`,
+    `แคมเปญ: ${s.tier || "-"}`,
     `ข้อความทัก: ${s.message || "-"}`
   ].join("\n")).join("\n\n");
 }
@@ -314,7 +335,7 @@ function savedToText() {
 function downloadCsv() {
   if (!saved.length) { toast("ยังไม่มีรายการที่บันทึก"); return; }
   const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const head = ["คนที่","ชื่อเล่น","ชื่อช่อง","TikTok","LINE","ยอดฟอล","ปุ่มที่เลือก","ข้อความทัก","บันทึกเมื่อ"];
+  const head = ["คนที่","ชื่อเล่น","ชื่อช่อง","TikTok","LINE","ยอดฟอล","แคมเปญ","ข้อความทัก","บันทึกเมื่อ"];
   const rows = saved.map((s, i) => [
     i + 1, s.nick, s.channel, s.tiktok, s.lines.map(l => l.value).join(" , "),
     s.followers, s.tier, s.message, fmtDate(s.savedAt)
@@ -373,7 +394,7 @@ function renderSaved() {
       h += row("LINE", dash);
     }
     h += row("ยอดฟอล", s.followers ? escapeHtml(s.followers) : dash);
-    h += row("ปุ่มที่เลือก", s.tier ? escapeHtml(s.tier) : dash);
+    h += row("แคมเปญ", s.tier ? escapeHtml(s.tier) : dash);
     h += row("ข้อความทัก", s.message ? escapeHtml(s.message) : dash, copyBtn(s.message));
     el.innerHTML = h;
 
@@ -425,6 +446,14 @@ function buildMessage(tpl, c) {
     .replaceAll("{link}", c.url || "")
     .replaceAll("{follow}", c.followers || "")
     .replace(/[ \t]{2,}/g, " ");
+}
+
+function tierButtonHtml(t) {
+  const cond = condText(t);
+  return `<button class="tier-btn" data-tier="${t.id}">
+      <span class="tb-title">${escapeHtml(tierName(t))}</span>
+      ${cond ? `<span class="tb-sub">(ฟอล ${escapeHtml(cond)})</span>` : ""}
+    </button>`;
 }
 
 function updateSaveBar() {
@@ -531,8 +560,8 @@ function renderCards() {
         </div>
         <div class="tier-btns">
           ${tierList.length
-            ? tierList.map(t => `<button class="tier-btn" data-tier="${t.id}">${escapeHtml(tierLabel(t))}</button>`).join("")
-            : `<span class="no-tier">ยังไม่มีปุ่ม เพิ่มได้ที่ "ตั้งค่าปุ่มยอดฟอลและข้อความทัก"</span>`}
+            ? tierList.map(tierButtonHtml).join("")
+            : `<span class="no-tier">ยังไม่มีแคมเปญ เพิ่มได้ที่ "ตั้งค่าแคมเปญและข้อความทัก"</span>`}
         </div>
         <div class="msg-box">
           <textarea class="msg"></textarea>
@@ -563,8 +592,8 @@ function renderCards() {
         if (isNaN(n)) h = "พิมพ์เป็นตัวเลข เช่น 850, 12k";
         else {
           const mt = matchTier(n);
-          if (mt) { h = `เข้าเงื่อนไขปุ่ม ${tierLabel(mt)}`; ok = true; }
-          else h = "ไม่เข้าเงื่อนไขปุ่มไหน เลือกเองได้";
+          if (mt) { h = `เข้าเงื่อนไข ${tierFull(mt)}`; ok = true; }
+          else h = "ไม่เข้าเงื่อนไขแคมเปญไหน เลือกเองได้";
         }
       }
       folHint.textContent = h;

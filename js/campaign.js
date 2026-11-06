@@ -4,20 +4,35 @@ const $ = id => document.getElementById(id);
 const STORE_KEY = "rc_campaigns_v1";
 
 const DEFAULT_CAMPAIGNS = [
-  { title: "ยืนยันรับงาน", tpl: "สวัสดีค่ะ {name} ขอบคุณที่ร่วมแคมเปญกับเรานะคะ รายละเอียดแคมเปญดูได้ที่ลิงก์นี้ค่ะ {link}" },
-  { title: "ส่งบรีฟ",      tpl: "สวัสดีค่ะ {name} ทางเราส่งบรีฟงานให้ตามลิงก์นี้นะคะ {link} หากมีข้อสงสัยสอบถามได้เลยค่ะ" },
-  { title: "ติดตามงาน",    tpl: "สวัสดีค่ะ {name} ขอติดตามความคืบหน้าของคลิปนะคะ ส่งลิงก์คลิปได้ที่นี่ค่ะ {link}" }
+  {
+    title: "Campaign A,
+    tpl: "สวัสดีค่ะ {name} {link}",
+    emailTpl: "เรียน คุณ{name}\n\n\n{link}\n\nหากมีข้อสงสัย สามารถตอบกลับอีเมลนี้ได้เลยค่ะ\n\nขอแสดงความนับถือ"
+  },
+  {
+    title: "Campaign B",
+    tpl: "สวัสดีค่ะ {name}  {link} ",
+    emailTpl: "เรียน คุณ{name}\n\n\n{link}\n\nรบกวนตรวจสอบรายละเอียด หากมีข้อสงสัยสามารถตอบกลับอีเมลนี้ได้เลยค่ะ\n\nขอแสดงความนับถือ"
+  },
+  {
+    title: "Campaign C",
+    tpl: "สวัสดีค่ะ {name} {link}",
+    emailTpl: "เรียน คุณ{name}\n\n\n{link}\n\nขอบคุณค่ะ\n\nขอแสดงความนับถือ"
+  }
 ];
 
 function load() {
   try {
     const s = JSON.parse(storeGet(STORE_KEY));
-    if (Array.isArray(s)) return s.map(c => ({ id: c.id || uid(), title: c.title || "", tpl: c.tpl || "" }));
+    if (Array.isArray(s)) return s.map(c => ({
+      id: c.id || uid(), title: c.title || "", tpl: c.tpl || "", emailTpl: c.emailTpl || ""
+    }));
   } catch {}
   return DEFAULT_CAMPAIGNS.map(c => ({ id: uid(), ...c }));
 }
 let campaigns = load();
 let selectedId = null;
+let mode = "normal"; // "normal" | "email"
 
 const save = () => { if (storeSet(STORE_KEY, JSON.stringify(campaigns))) flashSaved($("cpSavedFlag")); };
 const label = c => c.title.trim() || "(ยังไม่ตั้งชื่อ)";
@@ -46,14 +61,20 @@ function renderSettings() {
         <input class="cp-title" placeholder="ชื่อแคมเปญสั้นๆ เช่น ส่งบรีฟ">
         <button class="small del">ลบ</button>
       </div>
-      <textarea class="tpl" placeholder="ข้อความของแคมเปญนี้ ใช้ {name} และ {link} ได้"></textarea>`;
+      <span class="tpl-label">ข้อความปกติ</span>
+      <textarea class="tpl" placeholder="ข้อความปกติ ใช้ {name} และ {link} ได้"></textarea>
+      <span class="tpl-label">ข้อความสำหรับ Email</span>
+      <textarea class="tpl-email email-tpl" placeholder="ข้อความสำหรับส่ง Email (เว้นว่างได้)"></textarea>`;
     const title = box.querySelector(".cp-title");
     const tpl = box.querySelector(".tpl");
+    const emailTpl = box.querySelector(".tpl-email");
     title.value = c.title;
     tpl.value = c.tpl;
+    emailTpl.value = c.emailTpl;
 
     title.oninput = () => { c.title = title.value; renderButtons(); save(); };
     tpl.oninput = () => { c.tpl = tpl.value; renderResult(); save(); };
+    emailTpl.oninput = () => { c.emailTpl = emailTpl.value; renderResult(); save(); };
 
     const del = box.querySelector(".del");
     del.onclick = () => confirmClick(del, "กดอีกครั้งเพื่อลบ", () => {
@@ -78,7 +99,8 @@ function renderButtons() {
     b.className = "tier-btn" + (c.id === selectedId ? " active" : "");
     b.textContent = label(c);
     b.onclick = () => {
-      selectedId = selectedId === c.id ? null : c.id;
+      if (selectedId === c.id) selectedId = null;
+      else { selectedId = c.id; mode = "normal"; }  // เลือกแคมเปญใหม่ เริ่มที่ข้อความปกติ
       renderButtons();
     };
     wrap.appendChild(b);
@@ -92,16 +114,34 @@ function renderResult() {
   const c = campaigns.find(x => x.id === selectedId);
   if (!c) { box.classList.remove("show"); return; }
 
-  $("cpMsg").value = buildMessage(c.tpl);
+  const isEmail = mode === "email";
+  const tpl = isEmail ? c.emailTpl : c.tpl;
+
+  document.querySelectorAll("#cpMode button").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
+  $("cpModeLabel").textContent = isEmail ? "ข้อความ Email" : "ข้อความปกติ";
+  box.classList.toggle("email", isEmail);
   box.classList.add("show");
 
-  const missing = [];
-  if (c.tpl.includes("{name}") && !$("cpName").value.trim()) missing.push("ชื่อแอค");
-  if (c.tpl.includes("{link}") && !$("cpLink").value.trim()) missing.push("ลิงก์");
-  $("cpWarn").textContent = missing.length ? `ยังไม่ได้กรอก${missing.join(" และ ")}` : "";
+  $("cpMsg").value = tpl.trim() ? buildMessage(tpl) : "";
+
+  let warn = "";
+  if (!tpl.trim()) {
+    warn = isEmail ? "แคมเปญนี้ยังไม่ได้ตั้งข้อความ Email" : "แคมเปญนี้ยังไม่ได้ตั้งข้อความปกติ";
+  } else {
+    const missing = [];
+    if (tpl.includes("{name}") && !$("cpName").value.trim()) missing.push("ชื่อแอค");
+    if (tpl.includes("{link}") && !$("cpLink").value.trim()) missing.push("ลิงก์");
+    if (missing.length) warn = `ยังไม่ได้กรอก${missing.join(" และ ")}`;
+  }
+  $("cpWarn").textContent = warn;
 }
 
 /* ---------- Events ---------- */
+document.querySelectorAll("#cpMode button").forEach(b => b.onclick = () => {
+  mode = b.dataset.mode;
+  renderResult();
+});
+
 $("cpName").oninput = renderResult;
 $("cpLink").oninput = renderResult;
 $("cpClear").onclick = () => {
@@ -111,7 +151,7 @@ $("cpClear").onclick = () => {
 $("cpCopy").onclick = () => copyText($("cpMsg").value);
 
 $("cpAdd").onclick = () => {
-  campaigns.push({ id: uid(), title: "", tpl: "สวัสดีค่ะ {name} " });
+  campaigns.push({ id: uid(), title: "", tpl: "สวัสดีค่ะ {name} ", emailTpl: "เรียน คุณ{name}\n\n" });
   renderSettings(); renderButtons(); save();
   const boxes = document.querySelectorAll("#cpList .tier-box");
   const last = boxes[boxes.length - 1];
@@ -127,6 +167,7 @@ const btnReset = $("cpReset");
 btnReset.onclick = () => confirmClick(btnReset, "กดอีกครั้งเพื่อยืนยัน", () => {
   campaigns = DEFAULT_CAMPAIGNS.map(c => ({ id: uid(), ...c }));
   selectedId = null;
+  mode = "normal";
   renderSettings(); renderButtons(); save();
   toast("คืนค่าเริ่มต้นแล้ว");
 });
