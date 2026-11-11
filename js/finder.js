@@ -32,7 +32,6 @@ function saveTiers() {
   if (storeSet(STORE_KEY, JSON.stringify(tiers))) flashSaved($("savedFlag"));
 }
 
-// "12.5k" -> 12500, "2หมื่น" -> 20000, "1,000" -> 1000
 function parseNum(s) {
   if (s == null) return NaN;
   s = String(s).trim().toLowerCase().replace(/[,\s]/g, "");
@@ -151,16 +150,13 @@ btnReset.onclick = () => confirmClick(btnReset, "กดอีกครั้ง�
   toast("คืนค่าเริ่มต้นแล้ว");
 });
 
-/* ================= แบ่งคอมเมนต์ด้วยบรรทัด · และบรรทัดท้ายคอมเมนต์ ================= */
+/* ================= แบ่งคอมเมนต์ ================= */
 const SEP_LINE = /^[ \t\u00a0]*[·•‧・∙][ \t\u00a0]*$/;
-// บรรทัดท้ายคอมเมนต์ เช่น "1w Reply", "2d Like Reply", "2 สัปดาห์ ตอบกลับ"
 const FOOTER_LINE = /^\s*(?:\d+\s*[A-Za-zก-๙.]{1,12}\s*)?(?:(?:like|reply|ตอบกลับ|ถูกใจ|share|แชร์|edited|แก้ไขแล้ว)\s*)+$/i;
-// บรรทัดที่ดูเป็นข้อมูล (ไม่ใช่ชื่อเฟส)
 const DATA_HINT = /https?:|www\.|\.com|tiktok|ติ๊กต็อก|ไลน์|line\s*id|@|:|：/i;
 
 function splitComments(text) {
   const rows = text.replace(/\r/g, "").split("\n");
-  // ไม่มีทั้งบรรทัด · และบรรทัดท้ายคอมเมนต์ = ถือว่าเป็นคอมเมนต์เดียว
   if (!rows.some(r => SEP_LINE.test(r) || FOOTER_LINE.test(r))) return [{ author: "", body: text }];
 
   const comments = [];
@@ -173,7 +169,6 @@ function splitComments(text) {
   };
 
   rows.forEach(r => {
-    // บรรทัด · : บรรทัดสุดท้ายก่อนหน้าคือชื่อเฟสของคอมเมนต์ถัดไป
     if (SEP_LINE.test(r)) {
       if (!inSep) {
         let j = body.length - 1;
@@ -194,7 +189,6 @@ function splitComments(text) {
     }
     inSep = false;
 
-    // บรรทัดท้ายคอมเมนต์ : จบคอมเมนต์นี้ บรรทัดถัดไปคือชื่อเฟสคนใหม่
     if (FOOTER_LINE.test(r)) {
       flush();
       author = "";
@@ -212,14 +206,10 @@ function splitComments(text) {
   return comments;
 }
 
-/* ================= ตรวจจับข้อมูลในคอมเมนต์เดียว ================= */
-// ลิงก์แอคเคาท์ TikTok เท่านั้น (tiktok.com/@ชื่อ)
+/* ================= ตรวจจับข้อมูล ================= */
 const RE_TT_LINK = /(?:https?:\/\/)?(?:www\.|m\.)?tiktok\.com\/@([A-Za-z0-9._]+)/gi;
-// ลิงก์ TikTok ทุกแบบ (รวม vt./vm. ลิงก์โพสต์) ใช้ลบออกก่อนตรวจอย่างอื่น
 const RE_ANY_TT_URL = /(?:https?:\/\/)?(?:[a-z0-9]+\.)?tiktok\.com\/\S*/gi;
-// พิมพ์ชื่อแอค เช่น "Tiktok: abcd", "TikTok abcd", "ติ๊กต็อก : abcd", "TikTok ID - abcd"
 const RE_TT_WORD = /(?<![A-Za-z0-9.\/@])(?:tik[\s\-]?tok|ติ๊กต็อก|ติ๊กต๊อก|ติ๊กตอก|ติกต็อก|ติกตอก)(?![A-Za-z0-9])[ \t]*(?:(?:id|ไอดี|account|acc|ชื่อ|ช่อง)(?![A-Za-z])[ \t]*)?(?:[:：=\-–]\s*|[ \t]+)?@?([A-Za-z0-9_][A-Za-z0-9._]{1,29})/gi;
-// แบบย่อ "TT: abcd", "TT @abcd" (ต้องมี : หรือ - หรือ @)
 const RE_TT_SHORT = /(?<![A-Za-z0-9.\/@])tt(?![A-Za-z0-9])[ \t]*(?:[:：=\-–][ \t]*@?|@)([A-Za-z0-9_][A-Za-z0-9._]{1,29})/gi;
 const TT_IGNORE = new Set(["live","shop","link","id","account","acc","follower","followers","official","com","www","http","https","profile","channel","name","ig","line"]);
 
@@ -227,16 +217,12 @@ const RE_LINE_LINK = /(?:https?:\/\/)?(?:line\.me|lin\.ee)\/[^\s<>"']+/gi;
 const RE_LINE_ID = /(?<![A-Za-z])(?:line\s*id|id\s*line|ไอดีไลน์|ไลน์\s*ไอดี|line|ไลน์|ไลน)(?![.\w])\s*(?:id)?\s*[:：=\-–]?\s*(@?[A-Za-z0-9][A-Za-z0-9._\-]{1,29})/gi;
 const LINE_IGNORE = new Set(["id","me","for","official","oa","add","contact","http","https","www"]);
 
-// ชื่อเล่นแบบชัดเจน: "ชื่อเล่น : มิ้นท์", "ชื่อมิ้นท์ค่ะ", "Name: Mint"
 const RE_NICK = /(?<![A-Za-z])(?:ชื่อเล่น|nick\s*name|เรียกหนูว่า|เรียกเราว่า|เรียกผมว่า|เรียกว่า|ชื่อ|name)(?!\s*[-–]?\s*(?:ช่อง|บัญชี|ผู้ใช้|tik\s*tok|ติ๊ก|ไลน์|line|เพจ|page|จริง|นามสกุล|สกุล|เสียง|ig|ไอจี|account|channel|user|ร้าน|แบรนด์|สินค้า|เฟส|facebook))\s*[:：=\-–]?\s*(?:ว่า|คือ)?\s*([ก-๙A-Za-z]+)/gi;
-// เดาชื่อเล่น: "สวัสดีค่ะ มิ้นท์นะคะ"
 const RE_GREET_NICK = /(?:สวัสดี|hello|hi)(?:ค่ะ|ครับ|คะ|คับ|ค่า|จ้า|จ้ะ)?[ \t,!.~]*(?:หนู|เรา|ผม|ดิฉัน|เค้า)?[ \t]*(?:ชื่อ)?[ \t]*([ก-๙A-Za-z]{2,20}?)[ \t]*(?:นะ)?[ \t]*(?:คะ|ค่ะ|ครับ|คับ|ค่า|จ้า|จ้ะ)/gi;
-// เดาชื่อเล่น: บรรทัดสั้นๆ "มิ้นท์ค่ะ"
 const RE_LINE_NICK = /^\s*(?:หนู|เรา|ผม)?(?:ชื่อ)?\s*([ก-๙A-Za-z]{2,15}?)\s*(?:นะ)?\s*(?:คะ|ค่ะ|ครับ|คับ|ค่า|จ้า)\s*[!.~]*\s*$/i;
 
 const PARTICLES = ["นะคะ","นะค่ะ","นะครับ","ได้เลย","ค่ะ","ค่า","คะ","ครับ","คับ","จ้า","จ้ะ","น้า","นะ","เลย"];
 const NICK_IGNORE = new Set(["ช่อง","เพจ","บัญชี","ไลน์","ติดต่อ","line","tiktok","id","ig","my","is"]);
-// คำที่ไม่ใช่ชื่อแน่ๆ (ใช้ตอนเดา)
 const NOT_NAME_WORDS = new Set(["ได้","ได้เลย","มา","รับ","ส่ง","ดู","ขอ","ทัก","สะดวก","ว่าง","พร้อม","หนู","เรา","ผม","ค่ะ","ครับ","สวัสดี","hello","hi","dm","ib","ok","โอเค","ใช่","ไม่","จ้า","เลย","ด้วย","แล้ว","นะ"]);
 const NOT_NAME_PART = /สวัสดี|ขอบคุณ|สนใจ|รับงาน|รีวิว|ติดต่อ|ทักมา|ทักไลน์|ฝาก|ยินดี|เรท|ราคา|ไลน์|ติ๊กต็อก|ผู้ติดตาม|ฟอล|แอด|inbox|rate|card|tiktok|line/i;
 
@@ -269,7 +255,6 @@ function guessNick(text) {
 }
 
 function parseComment(body) {
-  // --- TikTok ---
   const accounts = [], seen = new Set();
   const addAcc = user => {
     user = user.replace(/\.+$/, "");
@@ -281,12 +266,10 @@ function parseComment(body) {
   };
   for (const m of body.matchAll(RE_TT_LINK)) addAcc(m[1]);
 
-  // ลบลิงก์ TikTok ทั้งหมด (รวมลิงก์โพสต์ vt./vm.) ออกก่อนตรวจอย่างอื่น
   const text = body.replace(RE_ANY_TT_URL, " ");
   for (const m of text.matchAll(RE_TT_WORD)) addAcc(m[1]);
   for (const m of text.matchAll(RE_TT_SHORT)) addAcc(m[1]);
 
-  // --- LINE ---
   const lines = [], linkRanges = [];
   const hasLine = v => lines.some(l => l.value.toLowerCase() === v.toLowerCase());
   for (const m of text.matchAll(RE_LINE_LINK)) {
@@ -302,7 +285,6 @@ function parseComment(body) {
     if (!hasLine(id)) lines.push({ type: "id", value: id });
   }
 
-  // --- ชื่อเล่น ---
   let nick = "", nickGuess = false;
   for (const m of text.matchAll(RE_NICK)) {
     const n = cleanNick(m[1]);
@@ -313,7 +295,6 @@ function parseComment(body) {
     nickGuess = !!nick;
   }
 
-  // --- ยอดฟอล ---
   let followers = "";
   const UNIT = "(?:(k|m|พัน|หมื่น|แสน|ล้าน)(?![A-Za-z]))?";
   const reFol1 = new RegExp("(?:ผู้ติดตาม|ยอดฟอล\\S{0,6}|ฟอลโล\\S{0,4}|ฟอล|followers?)\\s*(?:tik\\s*tok|ติ๊กต็อก)?\\s*[:：=\\-–]?\\s*(?:ประมาณ|กว่า|เกือบ|~|≈)?\\s*(\\d[\\d,]*(?:\\.\\d+)?)\\s*" + UNIT, "i");
@@ -324,7 +305,6 @@ function parseComment(body) {
   return { accounts, lines, nick, nickGuess, followers };
 }
 
-/* ================= Parser หลัก ================= */
 let skippedCount = 0;
 
 function parse(text) {
@@ -334,11 +314,8 @@ function parse(text) {
 
   splitComments(text).forEach(cm => {
     const info = parseComment(cm.body);
-
-    // ไม่มี TikTok (เช่น ส่งเรทการ์ดเป็นรูป) = ข้ามทั้งคอมเมนต์
     if (!info.accounts.length) { skippedCount++; return; }
 
-    // คนเดิมคอมเมนต์ซ้ำ = รวมข้อมูลเข้าการ์ดเดิม
     const exist = info.accounts.map(a => byUser.get(a.user.toLowerCase())).find(Boolean);
     if (exist) {
       info.accounts.forEach(a => {
@@ -386,7 +363,6 @@ let saved = (() => {
   catch { return []; }
 })();
 
-// ชื่อแอค TikTok ของรายการที่เลือก (รองรับข้อมูลเก่าที่เก็บแค่ลิงก์)
 const entryUsers = s => {
   if (Array.isArray(s.accounts) && s.accounts.length) return s.accounts.map(u => String(u).toLowerCase());
   const m = (s.tiktok || "").match(/@([A-Za-z0-9._]+)/);
@@ -433,12 +409,6 @@ function pickCards(list) {
     else saved.push(snap);
   });
   commitSaved();
-
-  const fab = $("saveFab");
-  fab.classList.remove("bump"); void fab.offsetWidth; fab.classList.add("bump");
-  toast(list.length === 1
-    ? `เพิ่ม @${list[0].name} เข้ารายการที่เลือกแล้ว`
-    : `เพิ่ม ${list.length} คนเข้ารายการที่เลือกแล้ว`, 2000);
 }
 
 function savedToText() {
@@ -483,7 +453,7 @@ function renderSaved() {
   const list = $("savedList");
   list.innerHTML = "";
   if (!saved.length) {
-    list.innerHTML = `<div class="empty">ยังไม่มีรายการที่เลือก<br>กด "เลือกคนนี้" ที่การ์ดในผลลัพธ์</div>`;
+    list.innerHTML = `<div class="empty">ยังไม่มีรายการที่เลือก<br>กด "เลือกคนนี้" หรือใช้ตัวกรองคนว่าง</div>`;
     return;
   }
 
@@ -588,14 +558,6 @@ function tierButtonHtml(t) {
     </button>`;
 }
 
-function updateBar(visible) {
-  const bar = $("saveBar");
-  if (!visible.length) { bar.style.display = "none"; return; }
-  bar.style.display = "flex";
-  $("checkCount").innerHTML = `แสดงอยู่ <b>${visible.length}</b> คน`;
-  $("btnPickAll").textContent = `เลือกทั้งหมด (${visible.length})`;
-}
-
 function renderCards() {
   const results = $("results");
   const summary = $("summary");
@@ -606,7 +568,6 @@ function renderCards() {
 
   if (!inputEl.value.trim()) {
     summary.innerHTML = `<div class="empty">วางคอมเมนต์ด้านบน แล้วผลจะแสดงตรงนี้</div>`;
-    updateBar(visible);
     return;
   }
 
@@ -622,7 +583,6 @@ function renderCards() {
     results.innerHTML = `<div class="empty">${cardsState.length
       ? "ทุกคนในคอมเมนต์ที่วางอยู่ในรายการที่เลือกแล้ว"
       : "ไม่พบ TikTok ในคอมเมนต์ที่วาง"}</div>`;
-    updateBar(visible);
     return;
   }
 
@@ -648,7 +608,6 @@ function renderCards() {
         <input class="channel-input" placeholder="ชื่อช่อง (ใช้ในข้อความ)">
         <button class="small pick-btn">เลือกคนนี้</button>
       </div>
-            ${c.accounts.length > 1 ? `<div style="margin-top:8px"><span class="caution">คอมเมนต์นี้มี TikTok ${c.accounts.length} แอค ข้อมูลของหลายคนอาจปนกัน ควรตรวจสอบ</span></div>` : ""}
       <div class="item">
         <span class="tag nick">ชื่อเล่น</span>
         <input class="nick-input" placeholder="ไม่มีข้อมูลชื่อเล่นในคอมเมนต์นี้ (พิมพ์เองได้)">
@@ -745,7 +704,7 @@ function renderCards() {
     channelInput.oninput = () => { c.channel = channelInput.value.trim(); refresh(); };
     nickInput.oninput = () => {
       c.nick = nickInput.value.trim();
-      if (c.nickGuess) {             // แก้เองแล้ว เอาป้ายเตือนออก
+      if (c.nickGuess) {
         c.nickGuess = false;
         card.querySelector(".caution")?.remove();
       }
@@ -768,8 +727,6 @@ function renderCards() {
     refresh();
     results.appendChild(card);
   });
-
-  updateBar(visible);
 }
 
 /* ================= Events ================= */
@@ -780,11 +737,42 @@ $("btnClear").onclick = () => { inputEl.value = ""; run(); inputEl.focus(); };
 let debounce;
 inputEl.addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(run, 300); });
 
-const btnPickAll = $("btnPickAll");
-btnPickAll.onclick = () => {
-  const v = cardsState.filter(c => !isPicked(c));
-  if (!v.length) { toast("ไม่มีคนให้เลือก"); return; }
-  confirmClick(btnPickAll, `กดอีกครั้งเพื่อเลือก ${v.length} คน`, () => pickCards(v));
+/* --- กรองด้วยรายชื่อคนว่างจากหลังบ้าน --- */
+$("btnFilterActive").onclick = () => {
+  const text = $("activeListInput").value.trim();
+  if (!text) { toast("กรุณาวางรายชื่อคนว่างก่อน"); return; }
+  
+  // ดึงชื่อแอคจากข้อความที่วาง (รองรับทุกลิงก์และข้อความ)
+  const activeSet = new Set();
+  for (const m of text.matchAll(/tiktok\.com\/@([A-Za-z0-9._]+)/gi)) activeSet.add(m[1].toLowerCase());
+  for (const m of text.matchAll(/@([A-Za-z0-9._]{2,})/g)) activeSet.add(m[1].toLowerCase());
+
+  if (!activeSet.size) { toast("ไม่พบชื่อแอค TikTok ในข้อความที่วาง"); return; }
+
+  // แยกคนออกเป็น 2 กลุ่ม: คนที่มีรายชื่อ (เอาไว้โชว์) กับ คนที่เหลือ (ส่งเข้าบันทึก)
+  const toKeep = [];
+  const toSave = [];
+
+  cardsState.forEach(c => {
+    const hasActive = c.accounts.some(a => activeSet.has(a.user.toLowerCase()));
+    if (hasActive) {
+      toKeep.push(c);
+    } else {
+      toSave.push(c);
+    }
+  });
+
+  if (toSave.length) {
+    pickCards(toSave);
+  }
+  
+  toast(`กรองสำเร็จ: แสดง ${toKeep.length} คน | ย้ายที่เหลือ ${toSave.length} คนเข้าเซฟ`, 2500);
+};
+
+$("btnClearFilter").onclick = () => {
+  $("activeListInput").value = "";
+  renderCards();
+  toast("ล้างตัวกรองแล้ว");
 };
 
 renderTierSettings();

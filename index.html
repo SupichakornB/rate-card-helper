@@ -52,12 +52,27 @@
   <!-- ==================== แท็บ: หาอินฟลู ==================== -->
   <section id="tab-finder" class="tab-page">
     <div class="panel">
+          <div class="panel">
       <div class="panel-title">วางคอมเมนต์</div>
       <textarea id="input" placeholder="วางคอมเมนต์จาก Facebook ตรงนี้ (วางหลายคอมเมนต์รวมกันได้ ระบบแยกคอมเมนต์จากบรรทัด ·)"></textarea>
+      
+      <!-- เพิ่มส่วนนี้สำหรับกรองคนว่าง -->
+      <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line);">
+        <details>
+          <summary style="font-size: 13px; font-weight: 600; cursor: pointer; color: var(--orange-dark);">🔗 กรองเฉพาะคนที่มีลิงก์ (นำคนที่เหลือเข้า "รายการที่เลือก" อัตโนมัติ)</summary>
+          <textarea id="activeListInput" placeholder="วางลิงก์หรือรายชื่อ TikTok ของคนที่ว่าง (บรรทัดละลิงก์ หรือยาวๆ ระบบดึงให้เอง)" style="margin-top: 8px; min-height: 80px;"></textarea>
+          <div class="row" style="margin-top: 6px;">
+            <button id="btnFilterActive" class="small outline">กรองและย้ายคนที่เหลือเข้าเซฟ</button>
+            <button id="btnClearFilter" class="small plain">ล้างตัวกรอง</button>
+          </div>
+        </details>
+      </div>
+
       <div class="row">
         <button id="btnParse">แยกข้อมูล</button>
         <button id="btnClear" class="plain">ล้าง</button>
       </div>
+    </div>
     </div>
 
     <div class="panel">
