@@ -395,13 +395,15 @@ function snapshot(c) {
     lines: c.lines.map(l => ({ type: l.type, value: l.value })),
     followers: (c.followers || "").trim(),
     tier: t ? tierFull(t) : "",
-    message: t ? (c.msgText || buildMessage(t.tpl, c)) : ""
+    message: t ? (c.msgText || buildMessage(t.tpl, c)) : "",
+    status: c.status || ""
   };
 }
 
-function pickCards(list) {
+function pickCards(list, extra = {}) {
   if (!list.length) return;
   list.forEach(c => {
+    Object.assign(c, extra);
     const snap = snapshot(c);
     const users = new Set(snap.accounts.map(u => u.toLowerCase()));
     const idx = saved.findIndex(s => entryUsers(s).some(u => users.has(u)));
@@ -471,6 +473,7 @@ function renderSaved() {
         <button class="small del s-del">ลบ</button>
       </div>`;
     h += row("ชื่อเฟส", s.fbName ? escapeHtml(s.fbName) : dash);
+    if (s.status) h += row("สถานะ", escapeHtml(s.status));
     h += row("ชื่อเล่น", s.nick ? escapeHtml(s.nick) : dash, copyBtn(s.nick));
     h += row("ชื่อช่อง", s.channel ? escapeHtml(s.channel) : dash, copyBtn(s.channel));
     const users = entryUsers(s);
@@ -506,7 +509,7 @@ function renderSaved() {
     del.onclick = () => confirmClick(del, "กดอีกครั้งเพื่อลบ", () => {
       saved = saved.filter(x => x.id !== s.id);
       commitSaved();
-      toast("ลบออกจากรายการแล้ว");
+      toast("ลบแล้ว");
     });
     list.appendChild(el);
   });
@@ -737,43 +740,61 @@ $("btnClear").onclick = () => { inputEl.value = ""; run(); inputEl.focus(); };
 let debounce;
 inputEl.addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(run, 300); });
 
-/* --- กรองด้วยรายชื่อคนว่างจากหลังบ้าน --- */
-$("btnFilterActive").onclick = () => {
+/* --- กรองด้วยรายชื่อคนว่าง --- */
+function doFilterActive() {
   const text = $("activeListInput").value.trim();
-  if (!text) { toast("กรุณาวางรายชื่อคนว่างก่อน"); return; }
-  
-  // ดึงชื่อแอคจากข้อความที่วาง (รองรับทุกลิงก์และข้อความ)
+  if (!text) { toast("ยังไม่มีรายชื่อ ส่งจาก SHOUT! หรือวางลิงก์ก่อน"); return; }
+
   const activeSet = new Set();
-  for (const m of text.matchAll(/tiktok\.com\/@([A-Za-z0-9._]+)/gi)) activeSet.add(m[1].toLowerCase());
-  for (const m of text.matchAll(/@([A-Za-z0-9._]{2,})/g)) activeSet.add(m[1].toLowerCase());
+  for (const m of text.matchAll(/tiktok\.com\/@([A-Za-z0-9._]+)/gi)) activeSet.add(m[1].replace(/\.+$/, "").toLowerCase());
+  for (const m of text.matchAll(/^\s*@([A-Za-z0-9._]{2,})\s*$/gm)) activeSet.add(m[1].replace(/\.+$/, "").toLowerCase());
+  if (!activeSet.size) { toast("ไม่พบชื่อแอค TikTok ในรายชื่อ"); return; }
 
-  if (!activeSet.size) { toast("ไม่พบชื่อแอค TikTok ในข้อความที่วาง"); return; }
-
-  // แยกคนออกเป็น 2 กลุ่ม: คนที่มีรายชื่อ (เอาไว้โชว์) กับ คนที่เหลือ (ส่งเข้าบันทึก)
-  const toKeep = [];
-  const toSave = [];
-
-  cardsState.forEach(c => {
-    const hasActive = c.accounts.some(a => activeSet.has(a.user.toLowerCase()));
-    if (hasActive) {
-      toKeep.push(c);
-    } else {
-      toSave.push(c);
-    }
-  });
-
-  if (toSave.length) {
-    pickCards(toSave);
+  const visible = cardsState.filter(c => !isPicked(c));
+  if (!visible.length) {
+    toast(`ได้รายชื่อ ${activeSet.size} คนแล้ว วางคอมเมนต์ แล้วกดปุ่มกรองอีกครั้ง`, 3500);
+    return;
   }
-  
-  toast(`กรองสำเร็จ: แสดง ${toKeep.length} คน | ย้ายที่เหลือ ${toSave.length} คนเข้าเซฟ`, 2500);
-};
 
+  const toSave = visible.filter(c => !c.accounts.some(a => activeSet.has(a.user.toLowerCase())));
+  const keep = visible.length - toSave.length;
+  if (toSave.length) pickCards(toSave, { status: "อยู่ในระบบแล้ว (กรองจาก SHOUT!)" });
+  toast(`แสดง ${keep} คนที่ยังไม่ Verify | ย้าย ${toSave.length} คนเข้ารายการที่เลือก`, 3000);
+}
+
+$("btnFilterActive").onclick = doFilterActive;
 $("btnClearFilter").onclick = () => {
   $("activeListInput").value = "";
-  renderCards();
-  toast("ล้างตัวกรองแล้ว");
+  toast("ล้างช่องแล้ว");
 };
+
+/* --- รับค่าอัตโนมัติจาก Extension ผ่าน localStorage หรือ URL Param --- */
+window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(location.search);
+  const paramData = params.get("rcvUsers");
+  if (paramData) {
+    try {
+      const users = JSON.parse(decodeURIComponent(paramData));
+      $("activeListInput").value = users.map(u => "https://www.tiktok.com/@" + u).join("\n");
+      $("filterDetails").open = true;
+      history.replaceState({}, "", location.pathname);
+      setTimeout(doFilterActive, 500);
+    } catch(e) {}
+  }
+  
+  const savedTransfer = localStorage.getItem("rcvTransfer");
+  if (savedTransfer) {
+    try {
+      const data = JSON.parse(savedTransfer);
+      if (data && Array.isArray(data.users) && data.users.length) {
+        $("activeListInput").value = data.users.map(u => "https://www.tiktok.com/@" + u).join("\n");
+        $("filterDetails").open = true;
+        localStorage.removeItem("rcvTransfer");
+        setTimeout(doFilterActive, 500);
+      }
+    } catch(e) {}
+  }
+});
 
 renderTierSettings();
 renderSaved();

@@ -9,7 +9,7 @@
 </head>
 <body>
 
-<!-- ไอคอนรายการที่เลือก มุมขวาบน (แท็บหาอินฟลู) -->
+<!-- ไอคอนรายการที่เลือก มุมขวาบน -->
 <button id="saveFab" class="save-fab" title="รายการที่เลือก">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
@@ -46,24 +46,24 @@
 
   <div id="storageWarn" class="warn-bar">
     เบราว์เซอร์นี้ไม่อนุญาตให้บันทึกข้อมูล ทุกอย่างใช้งานได้ แต่ข้อมูลจะหายเมื่อปิดหน้าเว็บ
-    แนะนำให้เปิดไฟล์ด้วยการดับเบิลคลิกใน Chrome หรือ Edge (ไม่ใช่โหมดไม่ระบุตัวตน)
   </div>
 
   <!-- ==================== แท็บ: หาอินฟลู ==================== -->
   <section id="tab-finder" class="tab-page">
     <div class="panel">
-          <div class="panel">
       <div class="panel-title">วางคอมเมนต์</div>
       <textarea id="input" placeholder="วางคอมเมนต์จาก Facebook ตรงนี้ (วางหลายคอมเมนต์รวมกันได้ ระบบแยกคอมเมนต์จากบรรทัด ·)"></textarea>
       
-      <!-- เพิ่มส่วนนี้สำหรับกรองคนว่าง -->
-      <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line);">
-        <details>
-          <summary style="font-size: 13px; font-weight: 600; cursor: pointer; color: var(--orange-dark);">🔗 กรองเฉพาะคนที่มีลิงก์ (นำคนที่เหลือเข้า "รายการที่เลือก" อัตโนมัติ)</summary>
-          <textarea id="activeListInput" placeholder="วางลิงก์หรือรายชื่อ TikTok ของคนที่ว่าง (บรรทัดละลิงก์ หรือยาวๆ ระบบดึงให้เอง)" style="margin-top: 8px; min-height: 80px;"></textarea>
-          <div class="row" style="margin-top: 6px;">
-            <button id="btnFilterActive" class="small outline">กรองและย้ายคนที่เหลือเข้าเซฟ</button>
-            <button id="btnClearFilter" class="small plain">ล้างตัวกรอง</button>
+      <!-- ส่วนกรองคนว่างจาก SHOUT! -->
+      <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)">
+        <details id="filterDetails">
+          <summary style="font-size:13px;font-weight:600;cursor:pointer;color:var(--orange-dark)">
+            กรองด้วยรายชื่อคนที่ยังไม่ Verify (คนที่เหลือย้ายเข้ารายการที่เลือก)
+          </summary>
+          <textarea id="activeListInput" placeholder="รายชื่อจะเข้ามาเองเมื่อกด ส่งไป Rate Card Helper จาก SHOUT! หรือวางลิงก์ TikTok เองก็ได้" style="margin-top:8px;min-height:80px"></textarea>
+          <div class="row" style="margin-top:6px">
+            <button id="btnFilterActive" class="small outline">กรองและย้ายคนที่เหลือ</button>
+            <button id="btnClearFilter" class="small plain">ล้างช่อง</button>
           </div>
         </details>
       </div>
@@ -72,7 +72,6 @@
         <button id="btnParse">แยกข้อมูล</button>
         <button id="btnClear" class="plain">ล้าง</button>
       </div>
-    </div>
     </div>
 
     <div class="panel">
