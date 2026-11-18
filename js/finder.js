@@ -446,6 +446,8 @@ function downloadCsv() {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+let savedSearchQuery = "";
+
 function renderSaved() {
   const badge = $("savedBadge");
   badge.textContent = saved.length;
@@ -459,12 +461,31 @@ function renderSaved() {
     return;
   }
 
+  // กรองตามคำค้นหาในช่องค้นหาใหม่
+  const query = savedSearchQuery.trim().toLowerCase();
+  const filteredSaved = query 
+    ? saved.filter(s => {
+        const users = entryUsers(s).join(" ");
+        const channel = (s.channel || "").toLowerCase();
+        const fb = (s.fbName || "").toLowerCase();
+        const nick = (s.nick || "").toLowerCase();
+        return users.includes(query) || channel.includes(query) || fb.includes(query) || nick.includes(query);
+      })
+    : saved;
+
+  if (!filteredSaved.length) {
+    list.innerHTML = `<div class="empty">ไม่พบข้อมูลที่ค้นหา "{{query}}"</div>`.replace("{{query}}", escapeHtml(savedSearchQuery));
+    return;
+  }
+
   const dash = `<span class="hint">-</span>`;
   const copyBtn = v => v ? `<button class="small outline" data-copy="${escapeHtml(v)}">Copy</button>` : "";
   const row = (label, val, btns = "") =>
     `<div class="s-row"><span class="s-label">${label}</span><span class="s-val">${val}</span><span class="s-btns">${btns}</span></div>`;
 
-  saved.forEach((s, i) => {
+  filteredSaved.forEach((s) => {
+    // ใช้ index จริงจากอาเรย์หลัก เพื่อให้ปุ่มลบทำงานกับตัวจริงได้ถูกต้อง
+    const i = saved.indexOf(s);
     const el = document.createElement("div");
     el.className = "s-card";
     let h = `<div class="s-head">
@@ -514,6 +535,17 @@ function renderSaved() {
     list.appendChild(el);
   });
 }
+
+// ผูกอีเวนต์ช่องค้นหาใน Drawer
+document.addEventListener("DOMContentLoaded", () => {
+  const searchInput = $("savedSearchInput");
+  if (searchInput) {
+    searchInput.oninput = (e) => {
+      savedSearchQuery = e.target.value;
+      renderSaved();
+    };
+  }
+});
 
 function openDrawer() {
   renderSaved();

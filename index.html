@@ -24,7 +24,11 @@
       <h2>รายการที่เลือก <span id="savedTotal"></span></h2>
       <button id="btnCloseDrawer" class="small plain">ปิด</button>
     </div>
-    <div class="row">
+    <!-- ช่องค้นหารายการที่เคยเก็บไว้ -->
+    <div style="margin-top:8px;">
+      <input id="savedSearchInput" placeholder="🔍 ค้นหาด้วยชื่อ TikTok หรือชื่อช่อง..." style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);">
+    </div>
+    <div class="row" style="margin-top:8px;">
       <button id="btnCopyAllSaved" class="small outline">Copy ทั้งหมด</button>
       <button id="btnCsv" class="small outline">ดาวน์โหลด CSV</button>
       <button id="btnClearSaved" class="small plain">ล้างทั้งหมด</button>
