@@ -1,57 +1,178 @@
 /* ===== แท็บ: For Campaign ===== */
 (() => {
 const $ = id => document.getElementById(id);
-const STORE_KEY = "rc_campaigns_v1";
 
+// ถ้าแคมเปญเดิมไม่ขึ้นหลังอัปเดต ให้เปลี่ยน CP_KEY เป็นชื่อ key ที่ไฟล์ campaign.js เดิมใช้
+const CP_KEY = "cp_campaigns_v1";
+const FIELD_KEY = "cp_fields_v1";
+
+const DEFAULT_FIELDS = [
+  { key: "name", label: "ชื่อแอค", placeholder: "เช่น mint.review" },
+  { key: "link", label: "ลิงก์", placeholder: "https://..." }
+];
 const DEFAULT_CAMPAIGNS = [
-  {
-    title: "Campaign A",
-    tpl: "สวัสดีค่ะ {name} {link}",
-    emailTpl: "เรียน คุณ{name}\n\n\n{link}\n\nหากมีข้อสงสัย สามารถตอบกลับอีเมลนี้ได้เลยค่ะ\n\nขอแสดงความนับถือ"
-  },
-  {
-    title: "Campaign B",
-    tpl: "สวัสดีค่ะ {name}  {link} ",
-    emailTpl: "เรียน คุณ{name}\n\n\n{link}\n\nรบกวนตรวจสอบรายละเอียด หากมีข้อสงสัยสามารถตอบกลับอีเมลนี้ได้เลยค่ะ\n\nขอแสดงความนับถือ"
-  },
-  {
-    title: "Campaign C",
-    tpl: "สวัสดีค่ะ {name} {link}",
-    emailTpl: "เรียน คุณ{name}\n\n\n{link}\n\nขอบคุณค่ะ\n\nขอแสดงความนับถือ"
-  }
+  { title: "รีวิวสินค้า", normal: "สวัสดีค่ะช่อง {name} ({link}) ทางเราสนใจร่วมงานรีวิวสินค้ากับช่องค่ะ ไม่ทราบว่าสะดวกรับงานไหมคะ", email: "" }
 ];
 
-
-function load() {
-  try {
-    const s = JSON.parse(storeGet(STORE_KEY));
-    if (Array.isArray(s) && s.length > 0) {
-      return s.map(c => ({
-        id: c.id || uid(), title: c.title || "", tpl: c.tpl || "", emailTpl: c.emailTpl || ""
-      }));
-    }
-  } catch {}
-  return DEFAULT_CAMPAIGNS.map(c => ({ id: uid(), ...c }));
-}
-let campaigns = load();
-let selectedId = null;
-let mode = "normal"; // "normal" | "email"
-
-const save = () => { 
-  try {
-    if (storeSet(STORE_KEY, JSON.stringify(campaigns))) flashSaved($("cpSavedFlag"));
-  } catch(e) { console.error(e); }
+const loadList = (key, fallback) => {
+  try { const v = JSON.parse(storeGet(key)); if (Array.isArray(v)) return v; } catch {}
+  return fallback;
 };
-const label = c => c.title.trim() || "(ยังไม่ตั้งชื่อ)";
 
-function buildMessage(tpl) {
-  return tpl
-    .replaceAll("{name}", $("cpName").value.trim())
-    .replaceAll("{link}", $("cpLink").value.trim())
-    .replace(/[ \t]{2,}/g, " ");
+/* ================= ช่องข้อมูลบัญชี ================= */
+let fields = loadList(FIELD_KEY, DEFAULT_FIELDS).map(f => ({
+  id: f.id || uid(), key: f.key, label: f.label, placeholder: f.placeholder || "", value: ""
+}));
+
+const saveFields = () =>
+  storeSet(FIELD_KEY, JSON.stringify(fields.map(({ id, key, label, placeholder }) => ({ id, key, label, placeholder }))));
+
+function renderFields() {
+  const box = $("cpFields");
+  box.innerHTML = "";
+  if (!fields.length) {
+    box.innerHTML = `<div class="empty">ยังไม่มีช่องข้อมูล กด "+ เพิ่มช่อง"</div>`;
+    return;
+  }
+  fields.forEach(f => {
+    const el = document.createElement("div");
+    el.className = "cp-field";
+    el.innerHTML = `
+      <div class="cp-field-head">
+        <span class="cp-field-label"></span>
+        <code></code>
+        <button type="button" class="small plain cp-field-del">ลบช่อง</button>
+      </div>
+      <input class="cp-field-val">`;
+    el.querySelector(".cp-field-label").textContent = f.label;
+    el.querySelector("code").textContent = `{${f.key}}`;
+    const inp = el.querySelector(".cp-field-val");
+    inp.value = f.value || "";
+    inp.placeholder = f.placeholder || `กรอก${f.label}`;
+    inp.oninput = () => { f.value = inp.value; renderResult(); };
+
+    const del = el.querySelector(".cp-field-del");
+    del.onclick = () => confirmClick(del, "กดอีกครั้งเพื่อลบ", () => {
+      fields = fields.filter(x => x.id !== f.id);
+      saveFields(); renderFields(); renderVars(); renderResult();
+      toast(`ลบช่อง ${f.label} แล้ว`);
+    });
+    box.appendChild(el);
+  });
 }
 
-/* ---------- ตั้งค่าแคมเปญ ---------- */
+function renderVars() {
+  const box = $("cpVars");
+  box.innerHTML = `<span class="hint">ตัวแปรในข้อความ:</span>` + (fields.length
+    ? fields.map(f => `<code>{${escapeHtml(f.key)}}</code><span class="hint">${escapeHtml(f.label)}</span>`).join("")
+    : `<span class="hint">ยังไม่มี เพิ่มได้ที่ "+ เพิ่มช่อง" ในข้อมูลบัญชี</span>`);
+}
+
+/* --- ฟอร์มเพิ่มช่อง --- */
+const addForm = $("cpAddFieldForm");
+const showAddForm = show => {
+  addForm.style.display = show ? "flex" : "none";
+  if (show) { $("cpNewLabel").value = ""; $("cpNewKey").value = ""; $("cpNewLabel").focus(); }
+};
+$("cpAddField").onclick = () => showAddForm(addForm.style.display === "none");
+$("cpAddFieldCancel").onclick = () => showAddForm(false);
+
+function addField() {
+  const label = $("cpNewLabel").value.trim();
+  const key = $("cpNewKey").value.trim().replace(/^\{+|\}+$/g, "");
+  if (!label) { toast("ใส่ชื่อช่องก่อน เช่น ชื่อเล่น"); return; }
+  if (!key) { toast("ใส่ตัวแปรก่อน เช่น nick"); return; }
+  if (!/^[A-Za-z0-9_ก-๙]+$/.test(key)) { toast("ตัวแปรใช้ได้เฉพาะตัวอักษร ตัวเลข และ _ (ห้ามเว้นวรรค)"); return; }
+  if (fields.some(f => f.key.toLowerCase() === key.toLowerCase())) { toast(`มีตัวแปร {${key}} อยู่แล้ว`); return; }
+
+  fields.push({ id: uid(), key, label, placeholder: "", value: "" });
+  saveFields(); renderFields(); renderVars(); renderResult();
+  showAddForm(false);
+  toast(`เพิ่มช่อง ${label} แล้ว ใช้ {${key}} ในข้อความได้เลย`, 3000);
+}
+$("cpAddFieldOk").onclick = addField;
+["cpNewLabel", "cpNewKey"].forEach(id =>
+  $(id).addEventListener("keydown", e => { if (e.key === "Enter") addField(); }));
+
+$("cpClear").onclick = () => {
+  fields.forEach(f => { f.value = ""; });
+  renderFields(); renderResult();
+  toast("ล้างช่องแล้ว");
+};
+
+/* ================= แคมเปญ ================= */
+/* ===== โหลดแคมเปญ + กู้แคมเปญจากเวอร์ชันเก่าอัตโนมัติ ===== */
+const MIGRATED_KEY = "cp_migrated_v1";
+const SKIP_KEYS = new Set([CP_KEY, FIELD_KEY, "rc_tiers_v2", "rc_saved_v1", MIGRATED_KEY]);
+const pickStr = (o, names) => {
+  for (const n of names) if (typeof o[n] === "string" && o[n].trim()) return o[n];
+  return "";
+};
+
+// แปลงข้อมูลแคมเปญรูปแบบเก่าให้เป็นรูปแบบใหม่
+function normalizeOld(o) {
+  if (!o || typeof o !== "object") return null;
+  if ("op" in o || "savedAt" in o || ("key" in o && "label" in o)) return null; // ข้ามข้อมูลแท็บอื่น
+  const title = pickStr(o, ["title", "name", "label", "campaign", "campaignName"]);
+  const normal = pickStr(o, ["normal", "tpl", "template", "msg", "message", "text", "content", "body", "normalTpl", "tplNormal"]);
+  const email = pickStr(o, ["email", "emailTpl", "tplEmail", "mail", "emailMsg", "emailText"]);
+  if (!normal && !email) return null;
+  return { id: o.id || uid(), title, normal, email };
+}
+
+// ค้นทุก key ในเบราว์เซอร์ เพื่อหาแคมเปญชุดเดิม
+function findOldCampaigns() {
+  let keys = [];
+  try { keys = Object.keys(localStorage); } catch { return []; }
+  let best = [], bestScore = -1;
+  keys.forEach(k => {
+    if (SKIP_KEYS.has(k)) return;
+    let v;
+    try { v = JSON.parse(localStorage.getItem(k)); } catch { return; }
+    const arrays = Array.isArray(v) ? [v]
+      : (v && typeof v === "object" ? Object.values(v).filter(Array.isArray) : []);
+    arrays.forEach(arr => {
+      const list = arr.map(normalizeOld).filter(Boolean);
+      if (!list.length || list.length < arr.length / 2) return;
+      const score = list.length + (/cp|camp/i.test(k) ? 100 : 0);
+      if (score > bestScore) { bestScore = score; best = list; }
+    });
+  });
+  return best;
+}
+
+const sameCp = (a, b) =>
+  (a.title || "").trim() === (b.title || "").trim() && (a.normal || "").trim() === (b.normal || "").trim();
+const isDefaultCp = c => DEFAULT_CAMPAIGNS.some(d => sameCp(c, d));
+
+let campaigns = loadList(CP_KEY, []).map(c => ({
+  id: c.id || uid(), title: c.title || "", normal: c.normal || "", email: c.email || ""
+}));
+
+// ยังไม่เคยกู้ ให้หาแคมเปญเดิมแล้วรวมกับที่มีอยู่ (ไม่ลบอะไรทิ้ง)
+if (storeGet(MIGRATED_KEY) !== "1") {
+  const old = findOldCampaigns();
+  if (old.length) {
+    const mine = campaigns.filter(c => !isDefaultCp(c) && !old.some(o => sameCp(o, c)));
+    campaigns = [...old, ...mine];
+    storeSet(CP_KEY, JSON.stringify(campaigns));
+    storeSet(MIGRATED_KEY, "1");
+    setTimeout(() => toast(`กู้คืนแคมเปญเดิม ${old.length} อันแล้ว`, 3500), 300);
+  }
+}
+
+// ใช้แคมเปญตัวอย่างเฉพาะตอนที่ไม่เคยมีข้อมูลเลยจริงๆ
+if (!campaigns.length && storeGet(CP_KEY) == null) {
+  campaigns = DEFAULT_CAMPAIGNS.map(c => ({ id: uid(), ...c }));
+}
+let selectedId = null;
+let mode = "normal";
+
+const saveCampaigns = () => {
+  if (storeSet(CP_KEY, JSON.stringify(campaigns))) flashSaved($("cpSavedFlag"));
+};
+const cpName = c => (c.title || "").trim() || "(ยังไม่ตั้งชื่อ)";
+
 function renderSettings() {
   const list = $("cpList");
   list.innerHTML = "";
@@ -62,137 +183,111 @@ function renderSettings() {
   campaigns.forEach((c, idx) => {
     const box = document.createElement("div");
     box.className = "tier-box";
-    box.dataset.id = c.id;
     box.innerHTML = `
       <div class="tier-row">
         <span class="tier-num">แคมเปญ ${idx + 1}</span>
-        <input class="cp-title" placeholder="ชื่อแคมเปญสั้นๆ เช่น ส่งบรีฟ">
+        <input class="cp-title" placeholder="ชื่อแคมเปญ เช่น รีวิวสกินแคร์">
         <button class="small del" type="button">ลบ</button>
       </div>
-      <span class="tpl-label">ข้อความปกติ</span>
-      <textarea class="tpl" placeholder="ข้อความปกติ ใช้ {name} และ {link} ได้"></textarea>
-      <span class="tpl-label">ข้อความสำหรับ Email</span>
-      <textarea class="tpl-email email-tpl" placeholder="ข้อความสำหรับส่ง Email (เว้นว่างได้)"></textarea>`;
-    
+      <span class="sub-label">ข้อความปกติ</span>
+      <textarea class="tpl-normal" placeholder="ข้อความปกติ"></textarea>
+      <span class="sub-label">ข้อความ Email (เว้นว่างได้)</span>
+      <textarea class="tpl-email" placeholder="ข้อความสำหรับส่ง Email"></textarea>`;
     const title = box.querySelector(".cp-title");
-    const tpl = box.querySelector(".tpl");
-    const emailTpl = box.querySelector(".tpl-email");
+    const normal = box.querySelector(".tpl-normal");
+    const email = box.querySelector(".tpl-email");
     title.value = c.title;
-    tpl.value = c.tpl;
-    emailTpl.value = c.emailTpl;
+    normal.value = c.normal;
+    email.value = c.email;
 
-    title.oninput = () => { c.title = title.value; renderButtons(); save(); };
-    tpl.oninput = () => { c.tpl = tpl.value; renderResult(); save(); };
-    emailTpl.oninput = () => { c.emailTpl = emailTpl.value; renderResult(); save(); };
+    title.oninput = () => { c.title = title.value; renderButtons(); saveCampaigns(); };
+    normal.oninput = () => { c.normal = normal.value; renderResult(); saveCampaigns(); };
+    email.oninput = () => { c.email = email.value; renderResult(); saveCampaigns(); };
 
     const del = box.querySelector(".del");
     del.onclick = () => confirmClick(del, "กดอีกครั้งเพื่อลบ", () => {
       campaigns = campaigns.filter(x => x.id !== c.id);
       if (selectedId === c.id) selectedId = null;
-      renderSettings(); renderButtons(); save();
+      renderSettings(); renderButtons(); renderResult(); saveCampaigns();
       toast("ลบแคมเปญแล้ว");
     });
     list.appendChild(box);
   });
 }
 
-/* ---------- ปุ่มเลือกแคมเปญ ---------- */
-function renderButtons() {
-  const wrap = $("cpBtns");
-  wrap.innerHTML = "";
-  if (!campaigns.length) {
-    wrap.innerHTML = `<span class="no-tier">ยังไม่มีแคมเปญ เพิ่มได้ที่ "ตั้งค่าแคมเปญและข้อความ"</span>`;
-    renderResult();
-    return;
-  }
-  campaigns.forEach(c => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "tier-btn" + (c.id === selectedId ? " active" : "");
-    b.textContent = label(c);
-    b.onclick = () => {
-      if (selectedId === c.id) selectedId = null;
-      else { selectedId = c.id; mode = "normal"; }
-      renderButtons();
-    };
-    wrap.appendChild(b);
-  });
-  renderResult();
-}
-
-/* ---------- ผลลัพธ์ ---------- */
-function renderResult() {
-  const box = $("cpResult");
-  const c = campaigns.find(x => x.id === selectedId);
-  if (!c) { box.classList.remove("show"); return; }
-
-  const isEmail = mode === "email";
-  const tpl = isEmail ? c.emailTpl : c.tpl;
-
-  document.querySelectorAll("#cpMode button").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
-  $("cpModeLabel").textContent = isEmail ? "ข้อความ Email" : "ข้อความปกติ";
-  box.classList.toggle("email", isEmail);
-  box.classList.add("show");
-
-  $("cpMsg").value = tpl.trim() ? buildMessage(tpl) : "";
-
-  let warn = "";
-  if (!tpl.trim()) {
-    warn = isEmail ? "แคมเปญนี้ยังไม่ได้ตั้งข้อความ Email" : "แคมเปญนี้ยังไม่ได้ตั้งข้อความปกติ";
-  } else {
-    const missing = [];
-    if (tpl.includes("{name}") && !$("cpName").value.trim()) missing.push("ชื่อแอค");
-    if (tpl.includes("{link}") && !$("cpLink").value.trim()) missing.push("ลิงก์");
-    if (missing.length) warn = `ยังไม่ได้กรอก${missing.join(" และ ")}`;
-  }
-  $("cpWarn").textContent = warn;
-}
-
-/* ---------- Events ---------- */
-document.querySelectorAll("#cpMode button").forEach(b => b.onclick = () => {
-  mode = b.dataset.mode;
-  renderResult();
-});
-
-$("cpName").oninput = renderResult;
-$("cpLink").oninput = renderResult;
-$("cpClear").onclick = () => {
-  $("cpName").value = ""; $("cpLink").value = "";
-  renderResult(); $("cpName").focus();
-};
-$("cpCopy").onclick = () => copyText($("cpMsg").value);
-
 $("cpAdd").onclick = () => {
-  const newCampaign = { id: uid(), title: "", tpl: "สวัสดีค่ะ {name} ", emailTpl: "เรียน คุณ{name}\n\n" };
-  campaigns.push(newCampaign);
-  selectedId = newCampaign.id; // เลือกแคมเปญใหม่อัตโนมัติ
-  mode = "normal";
-  
-  renderSettings();
-  renderButtons();
-  save();
-
-  // เลื่อนหน้าจอไปที่ช่องกรอกชื่อของแคมเปญใหม่
+  campaigns.push({ id: uid(), title: "", normal: "สวัสดีค่ะช่อง {name} ", email: "" });
+  renderSettings(); renderButtons(); saveCampaigns();
   const boxes = document.querySelectorAll("#cpList .tier-box");
   const last = boxes[boxes.length - 1];
   if (last) {
     last.classList.add("new");
     last.scrollIntoView({ behavior: "smooth", block: "center" });
-    const titleInput = last.querySelector(".cp-title");
-    if (titleInput) titleInput.focus({ preventScroll: true });
+    last.querySelector(".cp-title").focus({ preventScroll: true });
     setTimeout(() => last.classList.remove("new"), 2000);
   }
 };
 
-const btnReset = $("cpReset");
-btnReset.onclick = () => confirmClick(btnReset, "กดอีกครั้งเพื่อยืนยัน", () => {
-  campaigns = DEFAULT_CAMPAIGNS.map(c => ({ id: uid(), ...c }));
-  selectedId = null;
-  mode = "normal";
-  renderSettings(); renderButtons(); save();
-  toast("คืนค่าเริ่มต้นแล้ว");
-});
+function renderButtons() {
+  const box = $("cpBtns");
+  if (!campaigns.length) {
+    box.innerHTML = `<span class="no-tier">ยังไม่มีแคมเปญ เพิ่มได้ที่ "ตั้งค่าแคมเปญและข้อความ"</span>`;
+    return;
+  }
+  box.innerHTML = campaigns.map(c =>
+    `<button class="tier-btn${c.id === selectedId ? " active" : ""}" data-id="${c.id}">
+      <span class="tb-title">${escapeHtml(cpName(c))}</span>
+    </button>`).join("");
+  box.querySelectorAll(".tier-btn").forEach(b => b.onclick = () => {
+    selectedId = selectedId === b.dataset.id ? null : b.dataset.id;
+    renderButtons(); renderResult();
+  });
+}
 
+/* ================= ผลลัพธ์ข้อความ ================= */
+function fill(tpl) {
+  let out = tpl || "";
+  fields.forEach(f => { out = out.split(`{${f.key}}`).join((f.value || "").trim()); });
+  return out.replace(/[ \t]{2,}/g, " ");
+}
+
+function renderResult() {
+  const box = $("cpResult");
+  const c = campaigns.find(x => x.id === selectedId);
+  if (!c) { box.classList.remove("show"); return; }
+  box.classList.add("show");
+
+  document.querySelectorAll("#cpMode button").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
+  $("cpModeLabel").textContent = mode === "email" ? "ข้อความสำหรับ Email" : "ข้อความปกติ";
+
+  const tpl = mode === "email" ? c.email : c.normal;
+  $("cpMsg").value = fill(tpl);
+
+  const warns = [];
+  if (mode === "email" && !c.email.trim()) warns.push("แคมเปญนี้ยังไม่ได้ตั้งข้อความ Email");
+  const used = [...new Set([...(tpl || "").matchAll(/\{([^{}\s]+)\}/g)].map(m => m[1]))];
+  const empty = used
+    .map(k => fields.find(f => f.key === k))
+    .filter(f => f && !(f.value || "").trim())
+    .map(f => f.label);
+  const unknown = used.filter(k => !fields.some(f => f.key === k));
+  if (empty.length) warns.push(`ยังไม่ได้กรอก: ${empty.join(", ")}`);
+  if (unknown.length) warns.push(`ไม่มีช่องสำหรับ ${unknown.map(k => `{${k}}`).join(", ")}`);
+  $("cpWarn").textContent = warns.join(" | ");
+}
+
+document.querySelectorAll("#cpMode button").forEach(b => b.onclick = () => {
+  mode = b.dataset.mode;
+  renderResult();
+});
+$("cpCopy").onclick = () => {
+  const text = $("cpMsg").value.trim();
+  text ? copyText(text) : toast("ยังไม่มีข้อความ");
+};
+
+renderFields();
+renderVars();
 renderSettings();
 renderButtons();
+renderResult();
 })();

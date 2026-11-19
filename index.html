@@ -24,11 +24,8 @@
       <h2>รายการที่เลือก <span id="savedTotal"></span></h2>
       <button id="btnCloseDrawer" class="small plain">ปิด</button>
     </div>
-    <!-- ช่องค้นหารายการที่เคยเก็บไว้ -->
-    <div style="margin-top:8px;">
-      <input id="savedSearchInput" placeholder="🔍 ค้นหาด้วยชื่อ TikTok หรือชื่อช่อง..." style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);">
-    </div>
-    <div class="row" style="margin-top:8px;">
+    <input id="savedSearchInput" class="saved-search" placeholder="ค้นหาด้วยชื่อ TikTok, ชื่อช่อง, ชื่อเล่น หรือชื่อเฟส">
+    <div class="row">
       <button id="btnCopyAllSaved" class="small outline">Copy ทั้งหมด</button>
       <button id="btnCsv" class="small outline">ดาวน์โหลด CSV</button>
       <button id="btnClearSaved" class="small plain">ล้างทั้งหมด</button>
@@ -54,30 +51,8 @@
 
   <!-- ==================== แท็บ: หาอินฟลู ==================== -->
   <section id="tab-finder" class="tab-page">
-    <div class="panel">
-      <div class="panel-title">วางคอมเมนต์</div>
-      <textarea id="input" placeholder="วางคอมเมนต์จาก Facebook ตรงนี้ (วางหลายคอมเมนต์รวมกันได้ ระบบแยกคอมเมนต์จากบรรทัด ·)"></textarea>
-      
-      <!-- ส่วนกรองคนว่างจาก SHOUT! -->
-      <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)">
-        <details id="filterDetails">
-          <summary style="font-size:13px;font-weight:600;cursor:pointer;color:var(--orange-dark)">
-            กรองด้วยรายชื่อคนที่ยังไม่ Verify (คนที่เหลือย้ายเข้ารายการที่เลือก)
-          </summary>
-          <textarea id="activeListInput" placeholder="รายชื่อจะเข้ามาเองเมื่อกด ส่งไป Rate Card Helper จาก SHOUT! หรือวางลิงก์ TikTok เองก็ได้" style="margin-top:8px;min-height:80px"></textarea>
-          <div class="row" style="margin-top:6px">
-            <button id="btnFilterActive" class="small outline">กรองและย้ายคนที่เหลือ</button>
-            <button id="btnClearFilter" class="small plain">ล้างช่อง</button>
-          </div>
-        </details>
-      </div>
 
-      <div class="row">
-        <button id="btnParse">แยกข้อมูล</button>
-        <button id="btnClear" class="plain">ล้าง</button>
-      </div>
-    </div>
-
+    <!-- ตั้งค่า (ย้ายขึ้นบน) -->
     <div class="panel">
       <details class="settings">
         <summary>ตั้งค่าแคมเปญและข้อความทัก</summary>
@@ -96,40 +71,41 @@
         <div id="tierList"></div>
         <div class="row">
           <button id="btnAddTier" class="outline">+ เพิ่มแคมเปญ</button>
-          <button id="btnResetTier" class="plain">คืนค่าเริ่มต้น</button>
           <span id="savedFlag" class="saved">บันทึกแล้ว</span>
         </div>
       </details>
     </div>
 
+    <div class="panel">
+      <div class="panel-title">วางคอมเมนต์</div>
+      <textarea id="input" placeholder="วางคอมเมนต์จาก Facebook ตรงนี้ (วางหลายคอมเมนต์รวมกันได้ ระบบแยกคอมเมนต์จากบรรทัด ·)"></textarea>
+
+      <div class="filter-box">
+        <details id="filterDetails">
+          <summary>กรองด้วยรายชื่อคนที่ยังไม่ Verify (คนที่เหลือย้ายเข้ารายการที่เลือก)</summary>
+          <textarea id="activeListInput" placeholder="วางลิงก์ที่กด Copy มาจาก Extension (คนที่ยังไม่ Verify)"></textarea>
+          <div class="row">
+            <button id="btnFilterActive" class="small outline">กรองและย้ายคนที่เหลือ</button>
+            <button id="btnMoveAll" class="small">ย้ายทั้งหมดเข้ารายการที่เลือก</button>
+            <button id="btnClearFilter" class="small plain">ล้างช่อง</button>
+          </div>
+        </details>
+      </div>
+
+      <div class="row">
+        <button id="btnParse">แยกข้อมูล</button>
+        <button id="btnClear" class="plain">ล้าง</button>
+      </div>
+    </div>
+
     <div id="summary"></div>
     <div id="results"></div>
-
-    <div id="saveBar" class="save-bar">
-      <span class="count" id="checkCount"></span>
-      <button id="btnPickAll">เลือกทั้งหมด</button>
-    </div>
   </section>
 
   <!-- ==================== แท็บ: For Campaign ==================== -->
   <section id="tab-campaign" class="tab-page">
-    <div class="panel">
-      <div class="panel-title">ข้อมูลบัญชี</div>
-      <div class="field-grid">
-        <label class="field">
-          <span>ชื่อแอค <code>{name}</code></span>
-          <input id="cpName" placeholder="เช่น mint.review">
-        </label>
-        <label class="field">
-          <span>ลิงก์ <code>{link}</code></span>
-          <input id="cpLink" placeholder="https://...">
-        </label>
-      </div>
-      <div class="row">
-        <button id="cpClear" class="plain small">ล้างช่อง</button>
-      </div>
-    </div>
 
+    <!-- ตั้งค่า (ย้ายขึ้นบน) -->
     <div class="panel">
       <details class="settings">
         <summary>ตั้งค่าแคมเปญและข้อความ</summary>
@@ -137,18 +113,32 @@
           ตั้งชื่อแคมเปญสั้นๆ แล้วเขียนข้อความ 2 แบบ คือข้อความปกติ และข้อความสำหรับส่ง Email
           (ช่อง Email เว้นว่างได้) ชื่อแคมเปญจะกลายเป็นปุ่มด้านล่าง ระบบบันทึกให้อัตโนมัติ
         </p>
-        <div class="vars">
-          <span class="hint">ตัวแปรในข้อความ:</span>
-          <code>{name}</code><span class="hint">ชื่อแอค</span>
-          <code>{link}</code><span class="hint">ลิงก์</span>
-        </div>
+        <div class="vars" id="cpVars"></div>
         <div id="cpList"></div>
         <div class="row">
           <button id="cpAdd" class="outline">+ เพิ่มแคมเปญ</button>
-          <button id="cpReset" class="plain">คืนค่าเริ่มต้น</button>
           <span id="cpSavedFlag" class="saved">บันทึกแล้ว</span>
         </div>
       </details>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">ข้อมูลบัญชี</div>
+      <div id="cpFields" class="field-grid"></div>
+
+      <div id="cpAddFieldForm" class="add-field" style="display:none">
+        <input id="cpNewLabel" placeholder="ชื่อช่อง เช่น ชื่อเล่น">
+        <span class="brace">{</span>
+        <input id="cpNewKey" placeholder="ตัวแปร เช่น nick">
+        <span class="brace">}</span>
+        <button id="cpAddFieldOk" class="small">เพิ่ม</button>
+        <button id="cpAddFieldCancel" class="small plain">ยกเลิก</button>
+      </div>
+
+      <div class="row">
+        <button id="cpAddField" class="small outline">+ เพิ่มช่อง</button>
+        <button id="cpClear" class="plain small">ล้างช่อง</button>
+      </div>
     </div>
 
     <div class="panel">

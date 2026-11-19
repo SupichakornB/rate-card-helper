@@ -143,13 +143,6 @@ $("btnAddTier").onclick = () => {
   }
 };
 
-const btnReset = $("btnResetTier");
-btnReset.onclick = () => confirmClick(btnReset, "กดอีกครั้งเพื่อยืนยัน", () => {
-  tiers = DEFAULT_TIERS.map(t => ({ id: uid(), ...t }));
-  renderTierSettings(); renderCards(); saveTiers();
-  toast("คืนค่าเริ่มต้นแล้ว");
-});
-
 /* ================= แบ่งคอมเมนต์ ================= */
 const SEP_LINE = /^[ \t\u00a0]*[·•‧・∙][ \t\u00a0]*$/;
 const FOOTER_LINE = /^\s*(?:\d+\s*[A-Za-zก-๙.]{1,12}\s*)?(?:(?:like|reply|ตอบกลับ|ถูกใจ|share|แชร์|edited|แก้ไขแล้ว)\s*)+$/i;
@@ -422,6 +415,7 @@ function savedToText() {
     `TikTok: ${entryUsers(s).length ? entryUsers(s).map(u => "https://www.tiktok.com/@" + u).join(", ") : "-"}`,
     `LINE: ${s.lines.length ? s.lines.map(l => l.value).join(", ") : "-"}`,
     `ยอดฟอล: ${s.followers || "-"}`,
+    `สถานะ: ${s.status || "-"}`,
     `แคมเปญ: ${s.tier || "-"}`,
     `ข้อความทัก: ${s.message || "-"}`
   ].join("\n")).join("\n\n");
@@ -430,12 +424,12 @@ function savedToText() {
 function downloadCsv() {
   if (!saved.length) { toast("ยังไม่มีรายการที่เลือก"); return; }
   const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const head = ["คนที่","ชื่อเฟส","ชื่อเล่น","ชื่อช่อง","TikTok","LINE","ยอดฟอล","แคมเปญ","ข้อความทัก","เลือกเมื่อ"];
+  const head = ["คนที่","ชื่อเฟส","ชื่อเล่น","ชื่อช่อง","TikTok","LINE","ยอดฟอล","สถานะ","แคมเปญ","ข้อความทัก","เลือกเมื่อ"];
   const rows = saved.map((s, i) => [
     i + 1, s.fbName, s.nick, s.channel,
     entryUsers(s).map(u => "https://www.tiktok.com/@" + u).join(" , "),
     s.lines.map(l => l.value).join(" , "),
-    s.followers, s.tier, s.message, fmtDate(s.savedAt)
+    s.followers, s.status, s.tier, s.message, fmtDate(s.savedAt)
   ].map(esc).join(","));
   const csv = "\uFEFF" + [head.map(esc).join(","), ...rows].join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -446,7 +440,11 @@ function downloadCsv() {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+/* --- ค้นหาในรายการที่เลือก --- */
 let savedSearchQuery = "";
+const matchSaved = (s, q) => [
+  entryUsers(s).join(" "), s.channel, s.fbName, s.nick
+].some(v => String(v || "").toLowerCase().includes(q));
 
 function renderSaved() {
   const badge = $("savedBadge");
@@ -457,24 +455,14 @@ function renderSaved() {
   const list = $("savedList");
   list.innerHTML = "";
   if (!saved.length) {
-    list.innerHTML = `<div class="empty">ยังไม่มีรายการที่เลือก<br>กด "เลือกคนนี้" หรือใช้ตัวกรองคนว่าง</div>`;
+    list.innerHTML = `<div class="empty">ยังไม่มีรายการที่เลือก<br>กด "เลือกคนนี้" หรือใช้ส่วนกรองคนที่ยังไม่ Verify</div>`;
     return;
   }
 
-  // กรองตามคำค้นหาในช่องค้นหาใหม่
-  const query = savedSearchQuery.trim().toLowerCase();
-  const filteredSaved = query 
-    ? saved.filter(s => {
-        const users = entryUsers(s).join(" ");
-        const channel = (s.channel || "").toLowerCase();
-        const fb = (s.fbName || "").toLowerCase();
-        const nick = (s.nick || "").toLowerCase();
-        return users.includes(query) || channel.includes(query) || fb.includes(query) || nick.includes(query);
-      })
-    : saved;
-
-  if (!filteredSaved.length) {
-    list.innerHTML = `<div class="empty">ไม่พบข้อมูลที่ค้นหา "{{query}}"</div>`.replace("{{query}}", escapeHtml(savedSearchQuery));
+  const q = savedSearchQuery.trim().toLowerCase().replace(/^@/, "");
+  const shown = q ? saved.filter(s => matchSaved(s, q)) : saved;
+  if (!shown.length) {
+    list.innerHTML = `<div class="empty">ไม่พบ "${escapeHtml(savedSearchQuery.trim())}" ในรายการที่เลือก</div>`;
     return;
   }
 
@@ -483,8 +471,7 @@ function renderSaved() {
   const row = (label, val, btns = "") =>
     `<div class="s-row"><span class="s-label">${label}</span><span class="s-val">${val}</span><span class="s-btns">${btns}</span></div>`;
 
-  filteredSaved.forEach((s) => {
-    // ใช้ index จริงจากอาเรย์หลัก เพื่อให้ปุ่มลบทำงานกับตัวจริงได้ถูกต้อง
+  shown.forEach(s => {
     const i = saved.indexOf(s);
     const el = document.createElement("div");
     el.className = "s-card";
@@ -536,21 +523,16 @@ function renderSaved() {
   });
 }
 
-// ผูกอีเวนต์ช่องค้นหาใน Drawer
-document.addEventListener("DOMContentLoaded", () => {
-  const searchInput = $("savedSearchInput");
-  if (searchInput) {
-    searchInput.oninput = (e) => {
-      savedSearchQuery = e.target.value;
-      renderSaved();
-    };
-  }
-});
+$("savedSearchInput").oninput = e => {
+  savedSearchQuery = e.target.value;
+  renderSaved();
+};
 
 function openDrawer() {
   renderSaved();
   $("drawer").classList.add("show");
   $("overlay").classList.add("show");
+  $("savedSearchInput").focus();
 }
 function closeDrawer() {
   $("drawer").classList.remove("show");
@@ -772,10 +754,10 @@ $("btnClear").onclick = () => { inputEl.value = ""; run(); inputEl.focus(); };
 let debounce;
 inputEl.addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(run, 300); });
 
-/* --- กรองด้วยรายชื่อคนว่าง --- */
-function doFilterActive() {
+/* --- กรองด้วยรายชื่อคนที่ยังไม่ Verify --- */
+$("btnFilterActive").onclick = () => {
   const text = $("activeListInput").value.trim();
-  if (!text) { toast("ยังไม่มีรายชื่อ ส่งจาก SHOUT! หรือวางลิงก์ก่อน"); return; }
+  if (!text) { toast("ยังไม่มีรายชื่อ วางลิงก์ที่ Copy มาจาก Extension ก่อน"); return; }
 
   const activeSet = new Set();
   for (const m of text.matchAll(/tiktok\.com\/@([A-Za-z0-9._]+)/gi)) activeSet.add(m[1].replace(/\.+$/, "").toLowerCase());
@@ -792,41 +774,23 @@ function doFilterActive() {
   const keep = visible.length - toSave.length;
   if (toSave.length) pickCards(toSave, { status: "อยู่ในระบบแล้ว (กรองจาก SHOUT!)" });
   toast(`แสดง ${keep} คนที่ยังไม่ Verify | ย้าย ${toSave.length} คนเข้ารายการที่เลือก`, 3000);
-}
+};
 
-$("btnFilterActive").onclick = doFilterActive;
+/* --- ย้ายทั้งหมดเข้ารายการที่เลือก (ติดต่อครบแล้ว) --- */
+const btnMoveAll = $("btnMoveAll");
+btnMoveAll.onclick = () => {
+  const visible = cardsState.filter(c => !isPicked(c));
+  if (!visible.length) { toast("ไม่มีการ์ดที่ต้องย้าย"); return; }
+  confirmClick(btnMoveAll, `กดอีกครั้งเพื่อย้าย ${visible.length} คน`, () => {
+    pickCards(visible, { status: "ติดต่อแล้ว" });
+    toast(`ย้าย ${visible.length} คนเข้ารายการที่เลือกแล้ว`);
+  });
+};
+
 $("btnClearFilter").onclick = () => {
   $("activeListInput").value = "";
   toast("ล้างช่องแล้ว");
 };
-
-/* --- รับค่าอัตโนมัติจาก Extension ผ่าน localStorage หรือ URL Param --- */
-window.addEventListener("DOMContentLoaded", () => {
-  const params = new URLSearchParams(location.search);
-  const paramData = params.get("rcvUsers");
-  if (paramData) {
-    try {
-      const users = JSON.parse(decodeURIComponent(paramData));
-      $("activeListInput").value = users.map(u => "https://www.tiktok.com/@" + u).join("\n");
-      $("filterDetails").open = true;
-      history.replaceState({}, "", location.pathname);
-      setTimeout(doFilterActive, 500);
-    } catch(e) {}
-  }
-  
-  const savedTransfer = localStorage.getItem("rcvTransfer");
-  if (savedTransfer) {
-    try {
-      const data = JSON.parse(savedTransfer);
-      if (data && Array.isArray(data.users) && data.users.length) {
-        $("activeListInput").value = data.users.map(u => "https://www.tiktok.com/@" + u).join("\n");
-        $("filterDetails").open = true;
-        localStorage.removeItem("rcvTransfer");
-        setTimeout(doFilterActive, 500);
-      }
-    } catch(e) {}
-  }
-});
 
 renderTierSettings();
 renderSaved();
